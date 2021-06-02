@@ -13,7 +13,7 @@ require("dotenv").config();
 
 const mongoose = require("mongoose");
 
-mongoose.connect("mongodb://localhost/BDnorelacional", {
+mongoose.connect("mongodb://localhost/Mongo", {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
@@ -34,7 +34,7 @@ const repSchemaJS = {
 const repSchema = new Schema(repSchemaJS);
 const rep = mongoose.model("Reproducciones", repSchema);
 
-const recomendacionesSchemaJS = {
+const recomSchemaJS = {
   user: String,
   recomendation: {
     cancion_id: Number,
@@ -43,11 +43,8 @@ const recomendacionesSchemaJS = {
     genero: String,
   },
 };
-const recomendacionesSchema = new Schema(recomendacionesSchemaJS);
-const recomendaciones = mongoose.model(
-  "Recomendaciones",
-  recomendacionesSchema
-);
+const recomSchema = new Schema(recomSchemaJS);
+const recomendaciones = mongoose.model("Recom", recomSchema);
 
 const { Pool } = require("pg");
 
@@ -83,7 +80,7 @@ const repro = async (req, res) => {
     )
     .then((response) => {
       response.rows.map((rec) => {
-        const recomendation = new recomendaciones({
+        const recom = new recomendaciones({
           user: rec.correo,
           recomendation: {
             cancion_id: rec.trackId,
@@ -92,7 +89,7 @@ const repro = async (req, res) => {
             genero: rec.genero,
           },
         });
-        recomendation.save();
+        recom.save();
       });
     });
   res.json({
