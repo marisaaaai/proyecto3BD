@@ -1,0 +1,112 @@
+ALTER TABLE usuario
+ADD COLUMN monitorA int,
+ADD COLUMN monitorB int;
+*se agrego a la tabla de usuario las columnas monitorA y monitorB*
+
+ALTER TABLE album
+ADD COLUMN modificacion VARCHAR;
+
+ALTER TABLE artista
+ADD COLUMN modificacion VARCHAR;
+
+ALTER TABLE cancion
+ADD COLUMN modificacion VARCHAR;
+
+*SE AGREGO A ARTISTA, ALBUM, CANCION columna de modificacion*
+
+CREATE TABLE bitacora (fechaRegistro DATE DEFAULT CURRENT_DATE, correo VARCHAR, accion VARCHAR, tabla VARCHAR)
+*se creo tabla bitacora*
+--------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION insert_cancion()
+RETURNS TRIGGER AS $$
+BEGIN
+	INSERT INTO bitacora(correo, accion, tabla) VALUES (NEW.modificacion, 'INSERT', 'Cancion');
+	RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER cancionINS
+AFTER INSERT ON cancion
+FOR EACH ROW 
+EXECUTE PROCEDURE insert_cancion();
+--------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION update_cancion()
+RETURNS TRIGGER AS $$
+BEGIN
+	INSERT INTO bitacora(correo, accion, tabla) VALUES (NEW.modificacion, 'UPDATE', 'Cancion');
+	RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER cancionUPD
+AFTER UPDATE ON cancion
+FOR EACH ROW 
+EXECUTE PROCEDURE update_cancion();
+---------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION delete_cancion()
+RETURNS TRIGGER AS $$
+BEGIN
+	INSERT INTO bitacora(correo, accion, tabla) VALUES (OLD.modificacion, 'DELETE', 'Cancion');
+	RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER cancionDLT
+AFTER DELETE ON cancion
+FOR EACH ROW 
+EXECUTE PROCEDURE delete_cancion();
+
+rep con album y artista
+-----------------------------------------------------------------------------------------------------------
+CREATE INDEX canid_rep ON reproducciones(cancion_id)
+CREATE INDEX fecharep on reproducciones(fechaRep)
+CREATE INDEX artid_cancion on cancion(artista_id)
+CREATE INDEX genero_cancion ON cancion(genero)
+------------------------------------------------------------------------------------------------------------
+
+query 1
+SELECT date_trunc('week', fechaRep::date) as weekly, COUNT(*) as reproducciones 
+from reproducciones WHERE fechaRep > $1 AND fechaRep < $2 GROUP BY weekly
+
+query 2
+SELECT artista.nombre, COUNT(*) as rep 
+FROM (reproducciones INNER JOIN cancion ON reproducciones.cancion_id=cancion.cancion_id) as foo 
+INNER JOIN artista ON artista.artista_id=foo.artista_id 
+where fechaRep> $1 AND fechaRep < $2 
+GROUP BY artista.nombre 
+ORDER BY rep DESC 
+LIMIT $3
+
+query 3
+SELECT cancion.genero, COUNT(*) as rep 
+FROM reproducciones INNER JOIN cancion ON reproducciones.cancion_id=cancion.cancion_id 
+where fechaRep> $1 AND fechaRep < $2 
+GROUP BY cancion.genero 
+ORDER BY rep DESC
+
+query 4
+SELECT foo.nombre, COUNT(*) as rep 
+FROM (reproducciones INNER JOIN cancion ON reproducciones.cancion_id = cancion.cancion_id) as foo 
+INNER JOIN artista ON foo.artista_id = artista.artista_id 
+WHERE artista.nombre = $1 
+GROUP BY foo.nombre 
+ORDER BY rep DESC
+
+Comisiones 
+----------------------------
+--------------------------Funcion iif------------------------------------------
+CREATE or replace FUNCTION iIF(
+    condition boolean,      
+    true_result anyelement,  
+    false_result anyelement  
+) RETURNS anyelement AS $f$
+  SELECT CASE WHEN condition THEN true_result ELSE false_result END
+$f$  LANGUAGE SQL IMMUTABLE;
+
+----------------------------------Query para ver la comision por reproducciones----------------
+select artista.nombre,cancion.artista_id, sum(iif(suscripcion = 0,0.1,0.5)) as comision
+from cancion, reproducciones,artista, usuario
+where cancion.cancion_id = reproducciones.cancion_id
+and artista.artista_id = cancion.artista_id
+and reproducciones.usuario_id = usuario.correo
+group by cancion.artista_id,artista.nombre;

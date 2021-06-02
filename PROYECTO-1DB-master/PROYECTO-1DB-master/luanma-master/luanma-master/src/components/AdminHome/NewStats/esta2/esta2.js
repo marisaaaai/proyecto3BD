@@ -1,0 +1,135 @@
+import React, { useState } from "react";
+import { connect } from "react-redux";
+import { reduxForm, Field } from "redux-form";
+import { Alert } from "reactstrap";
+import { Link } from "react-router-dom";
+
+import "./styles.css";
+import makeRequest from "../../../../requests/requests";
+import * as selectors from "../../../../reducers/index";
+import * as actions from "../../.././../actions/stats";
+
+const esta2 = ({
+  handleSubmit,
+  submitting,
+  reqSuccess,
+  reqMsg,
+  onClick,
+  onSubmit,
+  dispatch,
+}) => {
+  return (
+    <div className="wrapper">
+      <div className="form-wrapper">
+        <h1>Reproducciones por Artista dadas dos fechas con Limite</h1>
+        <h4>Ingresa una fecha a consultar (yyyy-mm-dd)</h4>
+        <form
+          onSubmit={handleSubmit((values) => {
+            onSubmit(values, dispatch);
+          })}
+        >
+          <Field
+            name="fecha1"
+            className="firstName"
+            label="Fecha menor"
+            component={renderInput}
+          />
+          <Field
+            name="fecha2"
+            className="firstName"
+            label="Fecha mayor"
+            component={renderInput}
+          />
+          <Field
+            name="limit"
+            className="firstName"
+            label="Limite (numero)"
+            component={renderInput}
+          />
+          {reqSuccess ? (
+            <div className="alert">
+              <Alert color="danger">Ups! {reqMsg.msg}</Alert>
+            </div>
+          ) : null}
+          <div className="createAccount">
+            <button type="submit" disabled={submitting}>
+              Ingresar fecha y limite
+            </button>
+          </div>
+          <Link
+            to="/admin-home/newstats/esta8/result"
+            className="createAccount"
+            onClick={onClick}
+          >
+            <div className="mod-wrapper">
+              <h4>Ver resultados</h4>
+            </div>
+          </Link>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const validate = (values) => {
+  //Validacion del Register Form
+
+  const error = {};
+
+  if (!values.fecha1) {
+    error.day1 = "Campo requerido";
+  }
+
+  if (!values.fecha2) {
+    error.day2 = "Campo requerido";
+  }
+
+  if (!values.limit) {
+    error.limit = "Campo requerido";
+  } else if (/\D/.test(values.limit)) {
+    error.limit = "Unicamente ingresar numeros";
+  }
+
+  return error;
+};
+const renderInput = ({ input, meta, label }) => (
+  <div className="field">
+    <label>{label}</label>
+    <input
+      {...input}
+      className={[
+        meta.active ? "active" : "",
+        meta.error && meta.touched ? "error" : "",
+        meta.active && meta.error ? "active" : "",
+      ].join("")}
+      placeholder={label}
+    />
+    {meta.error && meta.touched && (
+      <span className="errorMessage">{meta.error}</span>
+    )}
+  </div>
+);
+export default reduxForm({
+  form: "weeklyArtistsSalesForm",
+  destroyOnUnmount: false,
+  onSubmit(values, dispatch) {
+    const { fecha1, fecha2, limit } = values;
+    console.log(values);
+    const requestInfo = {
+      uri: `http://localhost:8000/esta2/${fecha1}/${fecha2}/${limit}`,
+      type: "GET",
+    };
+    makeRequest(null, requestInfo, (res) => {
+      console.log(res);
+      dispatch(actions.loadedStats(res.action));
+    });
+  },
+  validate,
+})(
+  connect((state) => ({
+    reqSuccess: selectors.getReqSuccess(state),
+    reqMsg: selectors.getReqMsg(state),
+    modSuccess: selectors.getModSuccess(state),
+    stats: selectors.getGraph8(state),
+  }))(esta2)
+);

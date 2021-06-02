@@ -1,0 +1,57 @@
+CREATE OR REPLACE FUNCTION sim(fecha DATE, num_tracks INT, num_rep INT)
+RETURNS void AS $$
+DECLARE
+	user int;
+	tracks int;
+	rep int;
+	maxidtrack int;
+	minidtrack int;
+	maxiduser int;
+	miniduser int;
+	numrandomtrack int;
+	numrandomuser int;
+	correorandom varchar;
+	maybe int;
+BEGIN
+	SELECT min(id) into miniduser FROM usuario;
+	SELECT MAX(id) into maxiduser FROM usuario;
+	SELECT MIN(cancion_id) into minidtrack from cancion;
+	SELECT MAX(cancion_id) into maxidtrack from cancion;
+	for tracks in 1 .. num_tracks loop
+		select cast(floor(random()*(maxidtrack-minidtrack+1))+minidtrack as int) into numrandomtrack;
+		select count(*) into maybe FROM cancion WHERE cancion_id = numrandomtrack;
+		IF maybe = 0 THEN
+			numrandomtrack = 35;
+		END IF;
+		for rep in 1 .. num_rep loop
+			select cast(floor(random()*(maxiduser-miniduser+1))+miniduser as int) into numrandomuser;
+			select correo into correorandom FROM usuario WHERE id = numrandomuser;
+			INSERT INTO reproducciones(cancion_id,usuario_id,fecharep) VALUES (numrandomtrack,correorandom,fecha);
+		END LOOP;
+	END LOOP;
+END;
+$$
+LANGUAGE 'plpgsql' VOLATILE
+
+SELECT * from sim('2000-01-01',10,2)
+
+CREATE TABLE trend (usuario_id VARCHAR, genero VARCHAR)
+
+CREATE OR REPLACE FUNCTION trends()
+RETURNS VOID 
+AS $$
+DECLARE 
+	max_usuario_id INT;
+	usuario_id_for INT;
+	genero_pop VARCHAR;
+	usuario_for VARCHAR;
+BEGIN
+	SELECT max(id) into max_usuario_id from usuario;
+	for usuario_id_for in 1 .. max_usuario_id LOOP
+		SELECT genero INTO genero_pop FROM (SELECT reproducciones.usuario_id, genero, count(*) from reproducciones INNER JOIN cancion on reproducciones.cancion_id = cancion.cancion_id INNER JOIN usuario ON reproducciones.usuario_id = usuario.correo where id = usuario_id_for GROUP BY genero, reproducciones.usuario_id ORDER BY COUNT(*) DESC LIMIT 1) as foo;
+		SELECT usuario_id INTO usuario_for FROM (SELECT reproducciones.usuario_id, genero, count(*) from reproducciones INNER JOIN cancion on reproducciones.cancion_id = cancion.cancion_id INNER JOIN usuario ON reproducciones.usuario_id = usuario.correo where id = usuario_id_for GROUP BY genero, reproducciones.usuario_id ORDER BY COUNT(*) DESC LIMIT 1) as foo;
+		INSERT INTO trend VALUES (usuario_for, genero_pop);
+	END LOOP;
+END;
+$$
+LANGUAGE 'plpgsql' VOLATILE
